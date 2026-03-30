@@ -313,15 +313,20 @@
         // Reconhecer número de telefone
         async function recognizePhone(imageData) {
             try {
-                const worker = await Tesseract.createWorker('por', 1, {
-                    logger: m => {
-                        if (m.status === 'recognizing text') {
-                            status.textContent = `Escaneando... ${Math.round(m.progress * 100)}%`;
-                        }
-                    }
-                });
+                const worker = await Tesseract.createWorker({
+                logger: m => {
+                if (m.status === 'recognizing text') {
+            status.textContent = `Escaneando... ${Math.round(m.progress * 100)}%`;
+        }
+    }
+});
 
-                const { data: { text } } = await worker.recognize(imageData);
+                await worker.load();
+                await worker.loadLanguage('por');
+                await worker.initialize('por');
+
+                const resultOCR = await worker.recognize(imageData);
+                const text = resultOCR.data.text || '';
                 await worker.terminate();
 
                 // Buscar padrões de telefone brasileiro
