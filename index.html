@@ -628,9 +628,18 @@ Obrigado! 🚚`
             return phone;
         }
 
+        // Codifica preservando emojis como UTF-8 literal (whatsapp:// não lida bem com %F0%9F...)
+        function encodeMessage(text) {
+            return text.split('').map(char => {
+                const code = char.codePointAt(0);
+                if (code > 255) return char; // emoji/unicode: deixa literal
+                return encodeURIComponent(char);
+            }).join('');
+        }
+
         // Abrir WhatsApp direto no app
         function openWhatsApp(phone, period) {
-            const message = encodeURIComponent(messages[period]);
+            const message = encodeMessage(messages[period]);
             // whatsapp:// abre o app nativo diretamente (iOS e Android)
             // Fallback para wa.me se o app não estiver instalado
             const appUrl = `whatsapp://send?phone=${phone}&text=${message}`;
