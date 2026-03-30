@@ -438,23 +438,48 @@ Obrigado! 🚚`
                 return;
             }
 
-            // Capturar apenas a área do quadrado
+            // Calcular a região exata do quadrado no vídeo real
+            // levando em conta o object-fit: cover
             const videoRect = video.getBoundingClientRect();
-            const overlayWidth = videoRect.width * 0.7;
-            const overlayHeight = videoRect.height * 0.4;
-            const overlayX = (video.videoWidth - (video.videoWidth * 0.7)) / 2;
-            const overlayY = (video.videoHeight - (video.videoHeight * 0.4)) / 2;
+            const displayW = videoRect.width;
+            const displayH = videoRect.height;
 
-            canvas.width = video.videoWidth * 0.7;
-            canvas.height = video.videoHeight * 0.4;
+            const videoW = video.videoWidth;
+            const videoH = video.videoHeight;
+
+            // Escala do object-fit: cover (maior das duas escalas)
+            const scale = Math.max(displayW / videoW, displayH / videoH);
+
+            // Tamanho renderizado do vídeo dentro do elemento (pode ser maior que o elemento)
+            const renderedW = videoW * scale;
+            const renderedH = videoH * scale;
+
+            // Offset do vídeo dentro do elemento (centrado)
+            const offsetX = (renderedW - displayW) / 2;
+            const offsetY = (renderedH - displayH) / 2;
+
+            // O overlay visual ocupa 70% da largura e 40% da altura do elemento, centralizado
+            const overlayDisplayX = displayW * 0.15; // (1 - 0.7) / 2
+            const overlayDisplayY = displayH * 0.30; // (1 - 0.4) / 2
+            const overlayDisplayW = displayW * 0.70;
+            const overlayDisplayH = displayH * 0.40;
+
+            // Converter coordenadas do elemento para coordenadas reais do vídeo
+            const cropX = (overlayDisplayX + offsetX) / scale;
+            const cropY = (overlayDisplayY + offsetY) / scale;
+            const cropW = overlayDisplayW / scale;
+            const cropH = overlayDisplayH / scale;
+
+            canvas.width = cropW;
+            canvas.height = cropH;
             const ctx = canvas.getContext('2d');
-            
+
             // Desenhar apenas a região do quadrado
             ctx.drawImage(
                 video,
-                overlayX, overlayY, // posição de origem
-                video.videoWidth * 0.7, video.videoHeight * 0.4, // tamanho de origem
-                0, 0, // posição de destino
+                cropX, cropY,   // posição de origem no vídeo real
+                cropW, cropH,   // tamanho de origem no vídeo real
+                0, 0,           // posição de destino
                 canvas.width, canvas.height // tamanho de destino
             );
 
