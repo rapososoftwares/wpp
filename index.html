@@ -431,6 +431,49 @@ Obrigado! 🚚`
             }
         }
 
+        // Indicador visual de foco
+        const cameraContainer = document.querySelector('.camera-container');
+        function showFocusIndicator(x, y) {
+            let indicator = document.getElementById('focusIndicator');
+            if (!indicator) {
+                indicator = document.createElement('div');
+                indicator.id = 'focusIndicator';
+                indicator.style.cssText = `
+                    position:absolute;width:60px;height:60px;
+                    border:2px solid #fff;border-radius:4px;
+                    pointer-events:none;transform:translate(-50%,-50%);
+                    z-index:10;box-shadow:0 0 0 1px rgba(0,0,0,0.5);
+                    transition:opacity 0.5s;
+                `;
+                cameraContainer.appendChild(indicator);
+            }
+            indicator.style.left = x + 'px';
+            indicator.style.top = y + 'px';
+            indicator.style.opacity = '1';
+            clearTimeout(indicator._timeout);
+            indicator._timeout = setTimeout(() => { indicator.style.opacity = '0'; }, 1500);
+        }
+
+        // Foco ao tocar na tela da câmera
+        cameraContainer.addEventListener('click', async (e) => {
+            const track = video.srcObject && video.srcObject.getVideoTracks()[0];
+            if (!track) return;
+            const rect = cameraContainer.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / rect.width;
+            const y = (e.clientY - rect.top) / rect.height;
+            showFocusIndicator(e.clientX - rect.left, e.clientY - rect.top);
+            try {
+                await track.applyConstraints({
+                    advanced: [{ focusMode: 'manual', pointsOfInterest: [{ x, y }] }]
+                });
+                setTimeout(() => {
+                    track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => {});
+                }, 2000);
+            } catch (err) {
+                console.log('Foco manual não suportado:', err.message);
+            }
+        });
+
         // Capturar imagem
         captureBtn.addEventListener('click', async () => {
             if (!worker) {
@@ -459,10 +502,12 @@ Obrigado! 🚚`
             const offsetY = (renderedH - displayH) / 2;
 
             // O overlay visual ocupa 70% da largura e 40% da altura do elemento, centralizado
-            const overlayDisplayX = displayW * 0.15; // (1 - 0.7) / 2
-            const overlayDisplayY = displayH * 0.30; // (1 - 0.4) / 2
-            const overlayDisplayW = displayW * 0.70;
-            const overlayDisplayH = displayH * 0.40;
+            // Margem interna para garantir que só captura dentro do quadrado
+            const margin = 10;
+            const overlayDisplayX = displayW * 0.15 + margin;
+            const overlayDisplayY = displayH * 0.30 + margin;
+            const overlayDisplayW = displayW * 0.70 - margin * 2;
+            const overlayDisplayH = displayH * 0.40 - margin * 2;
 
             // Converter coordenadas do elemento para coordenadas reais do vídeo
             const cropX = (overlayDisplayX + offsetX) / scale;
@@ -470,18 +515,32 @@ Obrigado! 🚚`
             const cropW = overlayDisplayW / scale;
             const cropH = overlayDisplayH / scale;
 
-            canvas.width = cropW;
-            canvas.height = cropH;
+            // Upscale para melhorar precisão do OCR
+            const upscale = 2.5;
+            canvas.width = cropW * upscale;
+            canvas.height = cropH * upscale;
             const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
 
             // Desenhar apenas a região do quadrado
             ctx.drawImage(
                 video,
-                cropX, cropY,   // posição de origem no vídeo real
-                cropW, cropH,   // tamanho de origem no vídeo real
-                0, 0,           // posição de destino
-                canvas.width, canvas.height // tamanho de destino
+                cropX, cropY,
+                cropW, cropH,
+                0, 0,
+                canvas.width, canvas.height
             );
+
+            // Converter para preto e branco para melhorar OCR
+            const imageDataObj = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const d = imageDataObj.data;
+            for (let i = 0; i < d.length; i += 4) {
+                const avg = (d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114);
+                const v = avg > 140 ? 255 : 0;
+                d[i] = d[i+1] = d[i+2] = v;
+            }
+            ctx.putImageData(imageDataObj, 0, 0);
 
             loading.classList.add('show');
             loadingText.textContent = 'Processando imagem...';
@@ -569,11 +628,22 @@ Obrigado! 🚚`
             return phone;
         }
 
-        // Abrir WhatsApp com mensagem
+        // Abrir WhatsApp direto no app
         function openWhatsApp(phone, period) {
             const message = encodeURIComponent(messages[period]);
-            const whatsappUrl = `https://wa.me/${phone}?text=${message}`;
-            window.open(whatsappUrl, '_blank');
+            // whatsapp:// abre o app nativo diretamente (iOS e Android)
+            // Fallback para wa.me se o app não estiver instalado
+            const appUrl = `whatsapp://send?phone=${phone}&text=${message}`;
+            const webUrl = `https://wa.me/${phone}?text=${message}`;
+
+            // Tenta abrir o app; se falhar após 1.5s, abre no navegador
+            window.location.href = appUrl;
+            setTimeout(() => {
+                // Só redireciona para web se a página ainda estiver visível
+                if (!document.hidden) {
+                    window.location.href = webUrl;
+                }
+            }, 1500);
         }
 
         // Botões de período
