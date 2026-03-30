@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scanner de Telefone - WhatsApp</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: #075E54;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 22px;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .camera-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 4/3;
+            background: #000;
+            overflow: hidden;
+        }
+
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        #canvas {
+            display: none;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            height: 60%;
+            border: 3px solid #25D366;
+            border-radius: 10px;
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+        }
+
+        .overlay-text {
+            position: absolute;
+            bottom: -40px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 14px;
+            text-align: center;
+            white-space: nowrap;
+            background: rgba(0,0,0,0.7);
+            padding: 8px 16px;
+            border-radius: 20px;
+        }
+
+        .controls {
+            padding: 20px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 16px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 10px;
+        }
+
+        .btn-capture {
+            background: #25D366;
+            color: white;
+        }
+
+        .btn-capture:active {
+            background: #1DA851;
+            transform: scale(0.98);
+        }
+
+        .btn-capture:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .result {
+            padding: 20px;
+            background: #F0F2F5;
+            display: none;
+        }
+
+        .result.show {
+            display: block;
+        }
+
+        .phone-display {
+            background: white;
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            border: 2px solid #25D366;
+        }
+
+        .phone-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .phone-number {
+            font-size: 24px;
+            font-weight: 700;
+            color: #075E54;
+            letter-spacing: 1px;
+        }
+
+        .btn-whatsapp {
+            background: #25D366;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-whatsapp:active {
+            background: #1DA851;
+        }
+
+        .status {
+            text-align: center;
+            padding: 12px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #25D366;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #FFEBEE;
+            color: #C62828;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: none;
+        }
+
+        .error.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📱 Scanner WhatsApp</h1>
+            <p>Escaneie o número da nota fiscal</p>
+        </div>
+
+        <div class="camera-container">
+            <video id="video" autoplay playsinline></video>
+            <canvas id="canvas"></canvas>
+            <div class="overlay">
+                <div class="overlay-text">Posicione o número no centro</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="error" id="error"></div>
+            <button class="btn btn-capture" id="captureBtn">
+                📸 Capturar e Escanear
+            </button>
+            <div class="status" id="status">Câmera pronta</div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Processando imagem...</p>
+        </div>
+
+        <div class="result" id="result">
+            <div class="phone-display">
+                <div class="phone-label">Número detectado:</div>
+                <div class="phone-number" id="phoneNumber"></div>
+            </div>
+            <button class="btn btn-whatsapp" id="whatsappBtn">
+                <span style="font-size: 24px;">💬</span>
+                Abrir no WhatsApp
+            </button>
+            <button class="btn" style="background: #666; color: white;" id="newScanBtn">
+                🔄 Escanear Outro
+            </button>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const captureBtn = document.getElementById('captureBtn');
+        const status = document.getElementById('status');
+        const loading = document.getElementById('loading');
+        const result = document.getElementById('result');
+        const phoneNumber = document.getElementById('phoneNumber');
+        const whatsappBtn = document.getElementById('whatsappBtn');
+        const newScanBtn = document.getElementById('newScanBtn');
+        const errorDiv = document.getElementById('error');
+
+        let detectedPhone = '';
+
+        // Iniciar câmera
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'environment',
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    }
+                });
+                video.srcObject = stream;
+                captureBtn.disabled = false;
+                status.textContent = 'Câmera pronta';
+            } catch (err) {
+                showError('Erro ao acessar câmera: ' + err.message);
+                captureBtn.disabled = true;
+            }
+        }
+
+        // Capturar imagem
+        captureBtn.addEventListener('click', async () => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0);
+
+            loading.classList.add('show');
+            captureBtn.disabled = true;
+            errorDiv.classList.remove('show');
+
+            try {
+                const imageData = canvas.toDataURL('image/png');
+                await recognizePhone(imageData);
+            } catch (err) {
+                showError('Erro ao processar: ' + err.message);
+                loading.classList.remove('show');
+                captureBtn.disabled = false;
+            }
+        });
+
+        // Reconhecer número de telefone
+        async function recognizePhone(imageData) {
+            try {
+                const worker = await Tesseract.createWorker('por', 1, {
+                    logger: m => {
+                        if (m.status === 'recognizing text') {
+                            status.textContent = `Escaneando... ${Math.round(m.progress * 100)}%`;
+                        }
+                    }
+                });
+
+                const { data: { text } } = await worker.recognize(imageData);
+                await worker.terminate();
+
+                // Buscar padrões de telefone brasileiro
+                const phones = extractPhones(text);
+
+                if (phones.length > 0) {
+                    detectedPhone = phones[0];
+                    phoneNumber.textContent = formatPhone(detectedPhone);
+                    result.classList.add('show');
+                    loading.classList.remove('show');
+                } else {
+                    showError('Nenhum telefone detectado. Tente novamente com melhor iluminação.');
+                    loading.classList.remove('show');
+                    captureBtn.disabled = false;
+                }
+            } catch (err) {
+                showError('Erro no OCR: ' + err.message);
+                loading.classList.remove('show');
+                captureBtn.disabled = false;
+            }
+        }
+
+        // Extrair números de telefone do texto
+        function extractPhones(text) {
+            // Remove tudo que não é número ou espaço
+            const cleaned = text.replace(/[^\d\s\(\)\-]/g, '');
+            
+            // Padrões brasileiros: (XX) XXXXX-XXXX, (XX) XXXX-XXXX, XX XXXXX-XXXX, etc.
+            const patterns = [
+                /\(?(\d{2})\)?[\s\-]?(\d{4,5})[\s\-]?(\d{4})/g,  // (11) 98765-4321
+                /(\d{2})[\s\-]?(\d{4,5})[\s\-]?(\d{4})/g,         // 11 98765-4321
+                /(\d{10,11})/g                                      // 11987654321
+            ];
+
+            const phones = [];
+            for (const pattern of patterns) {
+                const matches = [...cleaned.matchAll(pattern)];
+                for (const match of matches) {
+                    let phone = match[0].replace(/\D/g, '');
+                    
+                    // Validar comprimento (10 ou 11 dígitos)
+                    if (phone.length === 10 || phone.length === 11) {
+                        // Adicionar 55 se não tiver código do país
+                        if (!phone.startsWith('55')) {
+                            phone = '55' + phone;
+                        }
+                        phones.push(phone);
+                    }
+                }
+            }
+
+            return [...new Set(phones)]; // Remove duplicatas
+        }
+
+        // Formatar telefone para exibição
+        function formatPhone(phone) {
+            // Remove o 55
+            phone = phone.replace(/^55/, '');
+            
+            if (phone.length === 11) {
+                return `(${phone.slice(0,2)}) ${phone.slice(2,7)}-${phone.slice(7)}`;
+            } else if (phone.length === 10) {
+                return `(${phone.slice(0,2)}) ${phone.slice(2,6)}-${phone.slice(6)}`;
+            }
+            return phone;
+        }
+
+        // Abrir WhatsApp
+        whatsappBtn.addEventListener('click', () => {
+            const whatsappUrl = `https://wa.me/${detectedPhone}`;
+            window.open(whatsappUrl, '_blank');
+        });
+
+        // Novo scan
+        newScanBtn.addEventListener('click', () => {
+            result.classList.remove('show');
+            captureBtn.disabled = false;
+            detectedPhone = '';
+            status.textContent = 'Câmera pronta';
+        });
+
+        // Mostrar erro
+        function showError(message) {
+            errorDiv.textContent = message;
+            errorDiv.classList.add('show');
+            setTimeout(() => {
+                errorDiv.classList.remove('show');
+            }, 5000);
+        }
+
+        // Iniciar ao carregar
+        startCamera();
+    </script>
+</body>
+</html>
