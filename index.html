@@ -205,9 +205,54 @@
             border-radius: 8px;
             margin-bottom: 10px;
             display: none;
+            font-size: 14px;
         }
 
         .error.show {
+            display: block;
+        }
+
+        .manual-input {
+            display: none;
+            margin-top: 15px;
+        }
+
+        .manual-input.show {
+            display: block;
+        }
+
+        .input-group {
+            margin-bottom: 10px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #25D366;
+        }
+
+        .preview-image {
+            width: 100%;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: none;
+        }
+
+        .preview-image.show {
             display: block;
         }
     </style>
@@ -237,38 +282,91 @@
 
         <div class="loading" id="loading">
             <div class="spinner"></div>
-            <p>Processando imagem...</p>
+            <p id="loadingText">Carregando...</p>
         </div>
 
         <div class="result" id="result">
+            <img id="previewImage" class="preview-image" />
+            
             <div class="phone-display">
                 <div class="phone-label">Número detectado:</div>
                 <div class="phone-number" id="phoneNumber"></div>
             </div>
+            
             <button class="btn btn-whatsapp" id="whatsappBtn">
                 <span style="font-size: 24px;">💬</span>
                 Abrir no WhatsApp
             </button>
+            
             <button class="btn" style="background: #666; color: white;" id="newScanBtn">
                 🔄 Escanear Outro
             </button>
+
+            <div class="manual-input" id="manualInput">
+                <div class="input-group">
+                    <label>Ou digite o número manualmente:</label>
+                    <input type="tel" id="manualPhone" placeholder="(11) 98765-4321" />
+                </div>
+                <button class="btn btn-whatsapp" id="manualWhatsappBtn">
+                    💬 Abrir no WhatsApp
+                </button>
+            </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.4/dist/tesseract.min.js"></script>
     <script>
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
         const captureBtn = document.getElementById('captureBtn');
         const status = document.getElementById('status');
         const loading = document.getElementById('loading');
+        const loadingText = document.getElementById('loadingText');
         const result = document.getElementById('result');
         const phoneNumber = document.getElementById('phoneNumber');
         const whatsappBtn = document.getElementById('whatsappBtn');
         const newScanBtn = document.getElementById('newScanBtn');
         const errorDiv = document.getElementById('error');
+        const manualInput = document.getElementById('manualInput');
+        const manualPhone = document.getElementById('manualPhone');
+        const manualWhatsappBtn = document.getElementById('manualWhatsappBtn');
+        const previewImage = document.getElementById('previewImage');
 
         let detectedPhone = '';
+        let worker = null;
+
+        // Inicializar Tesseract
+        async function initTesseract() {
+            try {
+                loadingText.textContent = 'Inicializando scanner...';
+                loading.classList.add('show');
+                
+                worker = await Tesseract.createWorker('eng', 1, {
+                    logger: m => {
+                        if (m.status === 'loading tesseract core') {
+                            loadingText.textContent = 'Carregando motor OCR...';
+                        } else if (m.status === 'initializing tesseract') {
+                            loadingText.textContent = 'Inicializando...';
+                        } else if (m.status === 'loading language traineddata') {
+                            loadingText.textContent = 'Carregando idioma...';
+                        } else if (m.status === 'initializing api') {
+                            loadingText.textContent = 'Preparando API...';
+                        }
+                    }
+                });
+                
+                await worker.setParameters({
+                    tessedit_char_whitelist: '0123456789()- ',
+                });
+                
+                loading.classList.remove('show');
+                status.textContent = 'Scanner pronto!';
+            } catch (err) {
+                console.error('Erro ao inicializar Tesseract:', err);
+                showError('Erro ao carregar scanner. Recarregue a página.');
+                loading.classList.remove('show');
+            }
+        }
 
         // Iniciar câmera
         async function startCamera() {
@@ -282,7 +380,6 @@
                 });
                 video.srcObject = stream;
                 captureBtn.disabled = false;
-                status.textContent = 'Câmera pronta';
             } catch (err) {
                 showError('Erro ao acessar câmera: ' + err.message);
                 captureBtn.disabled = true;
@@ -291,12 +388,18 @@
 
         // Capturar imagem
         captureBtn.addEventListener('click', async () => {
+            if (!worker) {
+                showError('Scanner ainda não está pronto. Aguarde...');
+                return;
+            }
+
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(video, 0, 0);
 
             loading.classList.add('show');
+            loadingText.textContent = 'Processando imagem...';
             captureBtn.disabled = true;
             errorDiv.classList.remove('show');
 
@@ -304,7 +407,8 @@
                 const imageData = canvas.toDataURL('image/png');
                 await recognizePhone(imageData);
             } catch (err) {
-                showError('Erro ao processar: ' + err.message);
+                console.error('Erro ao processar:', err);
+                showError('Erro ao processar imagem. Tente novamente.');
                 loading.classList.remove('show');
                 captureBtn.disabled = false;
             }
@@ -313,37 +417,34 @@
         // Reconhecer número de telefone
         async function recognizePhone(imageData) {
             try {
-                const worker = await Tesseract.createWorker({
-                logger: m => {
-                if (m.status === 'recognizing text') {
-            status.textContent = `Escaneando... ${Math.round(m.progress * 100)}%`;
-        }
-    }
-});
-
-                await worker.load();
-                await worker.loadLanguage('por');
-                await worker.initialize('por');
-
-                const resultOCR = await worker.recognize(imageData);
-                const text = resultOCR.data.text || '';
-                await worker.terminate();
+                loadingText.textContent = 'Escaneando texto...';
+                
+                const { data: { text } } = await worker.recognize(imageData);
+                
+                console.log('Texto detectado:', text);
 
                 // Buscar padrões de telefone brasileiro
                 const phones = extractPhones(text);
 
+                loading.classList.remove('show');
+
                 if (phones.length > 0) {
                     detectedPhone = phones[0];
                     phoneNumber.textContent = formatPhone(detectedPhone);
+                    previewImage.src = imageData;
+                    previewImage.classList.add('show');
                     result.classList.add('show');
-                    loading.classList.remove('show');
                 } else {
-                    showError('Nenhum telefone detectado. Tente novamente com melhor iluminação.');
-                    loading.classList.remove('show');
+                    showError('Nenhum telefone detectado. Tente novamente com melhor iluminação ou digite manualmente.');
+                    manualInput.classList.add('show');
+                    result.classList.add('show');
                     captureBtn.disabled = false;
                 }
             } catch (err) {
-                showError('Erro no OCR: ' + err.message);
+                console.error('Erro no OCR:', err);
+                showError('Erro ao escanear. Digite o número manualmente.');
+                manualInput.classList.add('show');
+                result.classList.add('show');
                 loading.classList.remove('show');
                 captureBtn.disabled = false;
             }
@@ -351,14 +452,14 @@
 
         // Extrair números de telefone do texto
         function extractPhones(text) {
-            // Remove tudo que não é número ou espaço
+            // Remove tudo que não é número ou caracteres permitidos
             const cleaned = text.replace(/[^\d\s\(\)\-]/g, '');
             
-            // Padrões brasileiros: (XX) XXXXX-XXXX, (XX) XXXX-XXXX, XX XXXXX-XXXX, etc.
+            // Padrões brasileiros
             const patterns = [
-                /\(?(\d{2})\)?[\s\-]?(\d{4,5})[\s\-]?(\d{4})/g,  // (11) 98765-4321
-                /(\d{2})[\s\-]?(\d{4,5})[\s\-]?(\d{4})/g,         // 11 98765-4321
-                /(\d{10,11})/g                                      // 11987654321
+                /\(?(\d{2})\)?[\s\-]?(\d{4,5})[\s\-]?(\d{4})/g,
+                /(\d{2})[\s\-]?(\d{4,5})[\s\-]?(\d{4})/g,
+                /(\d{10,11})/g
             ];
 
             const phones = [];
@@ -367,9 +468,7 @@
                 for (const match of matches) {
                     let phone = match[0].replace(/\D/g, '');
                     
-                    // Validar comprimento (10 ou 11 dígitos)
                     if (phone.length === 10 || phone.length === 11) {
-                        // Adicionar 55 se não tiver código do país
                         if (!phone.startsWith('55')) {
                             phone = '55' + phone;
                         }
@@ -378,12 +477,11 @@
                 }
             }
 
-            return [...new Set(phones)]; // Remove duplicatas
+            return [...new Set(phones)];
         }
 
         // Formatar telefone para exibição
         function formatPhone(phone) {
-            // Remove o 55
             phone = phone.replace(/^55/, '');
             
             if (phone.length === 11) {
@@ -400,11 +498,25 @@
             window.open(whatsappUrl, '_blank');
         });
 
+        // WhatsApp manual
+        manualWhatsappBtn.addEventListener('click', () => {
+            const phone = manualPhone.value.replace(/\D/g, '');
+            if (phone.length >= 10) {
+                const fullPhone = phone.startsWith('55') ? phone : '55' + phone;
+                window.open(`https://wa.me/${fullPhone}`, '_blank');
+            } else {
+                showError('Digite um número válido com DDD');
+            }
+        });
+
         // Novo scan
         newScanBtn.addEventListener('click', () => {
             result.classList.remove('show');
+            manualInput.classList.remove('show');
+            previewImage.classList.remove('show');
             captureBtn.disabled = false;
             detectedPhone = '';
+            manualPhone.value = '';
             status.textContent = 'Câmera pronta';
         });
 
@@ -417,8 +529,9 @@
             }, 5000);
         }
 
-        // Iniciar ao carregar
+        // Iniciar
         startCamera();
+        initTesseract();
     </script>
 </body>
 </html>
