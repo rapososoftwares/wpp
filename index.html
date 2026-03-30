@@ -70,25 +70,43 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 80%;
-            height: 60%;
-            border: 3px solid #25D366;
+            width: 70%;
+            height: 40%;
+            border: 4px solid #25D366;
             border-radius: 10px;
-            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.7);
+        }
+
+        .overlay::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            border: 2px solid rgba(37, 211, 102, 0.5);
+            border-radius: 10px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
 
         .overlay-text {
             position: absolute;
-            bottom: -40px;
+            bottom: -45px;
             left: 50%;
             transform: translateX(-50%);
             color: white;
-            font-size: 14px;
+            font-size: 13px;
             text-align: center;
-            white-space: nowrap;
-            background: rgba(0,0,0,0.7);
-            padding: 8px 16px;
+            background: rgba(0,0,0,0.8);
+            padding: 10px 16px;
             border-radius: 20px;
+            white-space: nowrap;
+            font-weight: 600;
         }
 
         .controls {
@@ -136,7 +154,7 @@
             background: white;
             padding: 16px;
             border-radius: 12px;
-            margin-bottom: 12px;
+            margin-bottom: 16px;
             border: 2px solid #25D366;
         }
 
@@ -153,17 +171,52 @@
             letter-spacing: 1px;
         }
 
-        .btn-whatsapp {
-            background: #25D366;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .period-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
             gap: 10px;
+            margin-bottom: 15px;
         }
 
-        .btn-whatsapp:active {
-            background: #1DA851;
+        .btn-period {
+            background: linear-gradient(135deg, #25D366 0%, #20BA5A 100%);
+            color: white;
+            padding: 20px 10px;
+            border-radius: 12px;
+            border: none;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-period:active {
+            transform: scale(0.95);
+            background: linear-gradient(135deg, #1DA851 0%, #188F4A 100%);
+        }
+
+        .btn-period .icon {
+            font-size: 28px;
+        }
+
+        .btn-period.morning {
+            background: linear-gradient(135deg, #FFB84D 0%, #FF9500 100%);
+        }
+
+        .btn-period.morning:active {
+            background: linear-gradient(135deg, #FF9500 0%, #E88500 100%);
+        }
+
+        .btn-period.afternoon {
+            background: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%);
+        }
+
+        .btn-period.afternoon:active {
+            background: linear-gradient(135deg, #357ABD 0%, #2868AB 100%);
         }
 
         .status {
@@ -245,22 +298,37 @@
             border-color: #25D366;
         }
 
-        .preview-image {
-            width: 100%;
-            border-radius: 8px;
-            margin-bottom: 10px;
-            display: none;
+        .divider {
+            text-align: center;
+            color: #999;
+            font-size: 12px;
+            margin: 15px 0;
+            position: relative;
         }
 
-        .preview-image.show {
-            display: block;
+        .divider::before,
+        .divider::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 40%;
+            height: 1px;
+            background: #ddd;
+        }
+
+        .divider::before {
+            left: 0;
+        }
+
+        .divider::after {
+            right: 0;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>📱 Scanner WhatsApp</h1>
+            <h1>📱 Scanner Electrolux</h1>
             <p>Escaneie o número da nota fiscal</p>
         </div>
 
@@ -268,7 +336,7 @@
             <video id="video" autoplay playsinline></video>
             <canvas id="canvas"></canvas>
             <div class="overlay">
-                <div class="overlay-text">Posicione o número no centro</div>
+                <div class="overlay-text">📱 Posicione apenas o NÚMERO aqui</div>
             </div>
         </div>
 
@@ -286,30 +354,43 @@
         </div>
 
         <div class="result" id="result">
-            <img id="previewImage" class="preview-image" />
-            
             <div class="phone-display">
                 <div class="phone-label">Número detectado:</div>
                 <div class="phone-number" id="phoneNumber"></div>
             </div>
             
-            <button class="btn btn-whatsapp" id="whatsappBtn">
-                <span style="font-size: 24px;">💬</span>
-                Abrir no WhatsApp
-            </button>
+            <div class="period-buttons">
+                <button class="btn-period morning" id="morningBtn">
+                    <span class="icon">🌅</span>
+                    <span>MANHÃ</span>
+                </button>
+                <button class="btn-period afternoon" id="afternoonBtn">
+                    <span class="icon">🌆</span>
+                    <span>TARDE</span>
+                </button>
+            </div>
+            
+            <div class="divider">OU</div>
             
             <button class="btn" style="background: #666; color: white;" id="newScanBtn">
-                🔄 Escanear Outro
+                🔄 Escanear Outro Número
             </button>
 
             <div class="manual-input" id="manualInput">
                 <div class="input-group">
-                    <label>Ou digite o número manualmente:</label>
+                    <label>Não detectou? Digite manualmente:</label>
                     <input type="tel" id="manualPhone" placeholder="(11) 98765-4321" />
                 </div>
-                <button class="btn btn-whatsapp" id="manualWhatsappBtn">
-                    💬 Abrir no WhatsApp
-                </button>
+                <div class="period-buttons">
+                    <button class="btn-period morning" id="manualMorningBtn">
+                        <span class="icon">🌅</span>
+                        <span>MANHÃ</span>
+                    </button>
+                    <button class="btn-period afternoon" id="manualAfternoonBtn">
+                        <span class="icon">🌆</span>
+                        <span>TARDE</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -324,16 +405,34 @@
         const loadingText = document.getElementById('loadingText');
         const result = document.getElementById('result');
         const phoneNumber = document.getElementById('phoneNumber');
-        const whatsappBtn = document.getElementById('whatsappBtn');
+        const morningBtn = document.getElementById('morningBtn');
+        const afternoonBtn = document.getElementById('afternoonBtn');
         const newScanBtn = document.getElementById('newScanBtn');
         const errorDiv = document.getElementById('error');
         const manualInput = document.getElementById('manualInput');
         const manualPhone = document.getElementById('manualPhone');
-        const manualWhatsappBtn = document.getElementById('manualWhatsappBtn');
-        const previewImage = document.getElementById('previewImage');
+        const manualMorningBtn = document.getElementById('manualMorningBtn');
+        const manualAfternoonBtn = document.getElementById('manualAfternoonBtn');
 
         let detectedPhone = '';
         let worker = null;
+
+        const messages = {
+            morning: `Olá, tudo bem? 😊 
+Aqui é da equipe de entregas da Electrolux.
+
+Informamos que já estamos em rota e sua entrega será realizada hoje no período da manhã.
+
+Pedimos, por gentileza, que tenha alguém no local para receber o produto. 
+Obrigado! 🚚`,
+            afternoon: `Olá, tudo bem? 😊 
+Aqui é da equipe de entregas da Electrolux.
+
+Informamos que já estamos em rota e sua entrega será realizada hoje no período da tarde.
+
+Pedimos, por gentileza, que tenha alguém no local para receber o produto. 
+Obrigado! 🚚`
+        };
 
         // Inicializar Tesseract
         async function initTesseract() {
@@ -393,10 +492,25 @@
                 return;
             }
 
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
+            // Capturar apenas a área do quadrado
+            const videoRect = video.getBoundingClientRect();
+            const overlayWidth = videoRect.width * 0.7;
+            const overlayHeight = videoRect.height * 0.4;
+            const overlayX = (video.videoWidth - (video.videoWidth * 0.7)) / 2;
+            const overlayY = (video.videoHeight - (video.videoHeight * 0.4)) / 2;
+
+            canvas.width = video.videoWidth * 0.7;
+            canvas.height = video.videoHeight * 0.4;
             const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, 0, 0);
+            
+            // Desenhar apenas a região do quadrado
+            ctx.drawImage(
+                video,
+                overlayX, overlayY, // posição de origem
+                video.videoWidth * 0.7, video.videoHeight * 0.4, // tamanho de origem
+                0, 0, // posição de destino
+                canvas.width, canvas.height // tamanho de destino
+            );
 
             loading.classList.add('show');
             loadingText.textContent = 'Processando imagem...';
@@ -431,11 +545,9 @@
                 if (phones.length > 0) {
                     detectedPhone = phones[0];
                     phoneNumber.textContent = formatPhone(detectedPhone);
-                    previewImage.src = imageData;
-                    previewImage.classList.add('show');
                     result.classList.add('show');
                 } else {
-                    showError('Nenhum telefone detectado. Tente novamente com melhor iluminação ou digite manualmente.');
+                    showError('Nenhum telefone detectado. Tente novamente ou digite manualmente.');
                     manualInput.classList.add('show');
                     result.classList.add('show');
                     captureBtn.disabled = false;
@@ -452,10 +564,8 @@
 
         // Extrair números de telefone do texto
         function extractPhones(text) {
-            // Remove tudo que não é número ou caracteres permitidos
             const cleaned = text.replace(/[^\d\s\(\)\-]/g, '');
             
-            // Padrões brasileiros
             const patterns = [
                 /\(?(\d{2})\)?[\s\-]?(\d{4,5})[\s\-]?(\d{4})/g,
                 /(\d{2})[\s\-]?(\d{4,5})[\s\-]?(\d{4})/g,
@@ -492,18 +602,38 @@
             return phone;
         }
 
-        // Abrir WhatsApp
-        whatsappBtn.addEventListener('click', () => {
-            const whatsappUrl = `https://wa.me/${detectedPhone}`;
+        // Abrir WhatsApp com mensagem
+        function openWhatsApp(phone, period) {
+            const message = encodeURIComponent(messages[period]);
+            const whatsappUrl = `https://wa.me/${phone}?text=${message}`;
             window.open(whatsappUrl, '_blank');
+        }
+
+        // Botões de período - número detectado
+        morningBtn.addEventListener('click', () => {
+            openWhatsApp(detectedPhone, 'morning');
         });
 
-        // WhatsApp manual
-        manualWhatsappBtn.addEventListener('click', () => {
+        afternoonBtn.addEventListener('click', () => {
+            openWhatsApp(detectedPhone, 'afternoon');
+        });
+
+        // Botões de período - número manual
+        manualMorningBtn.addEventListener('click', () => {
             const phone = manualPhone.value.replace(/\D/g, '');
             if (phone.length >= 10) {
                 const fullPhone = phone.startsWith('55') ? phone : '55' + phone;
-                window.open(`https://wa.me/${fullPhone}`, '_blank');
+                openWhatsApp(fullPhone, 'morning');
+            } else {
+                showError('Digite um número válido com DDD');
+            }
+        });
+
+        manualAfternoonBtn.addEventListener('click', () => {
+            const phone = manualPhone.value.replace(/\D/g, '');
+            if (phone.length >= 10) {
+                const fullPhone = phone.startsWith('55') ? phone : '55' + phone;
+                openWhatsApp(fullPhone, 'afternoon');
             } else {
                 showError('Digite um número válido com DDD');
             }
@@ -513,7 +643,6 @@
         newScanBtn.addEventListener('click', () => {
             result.classList.remove('show');
             manualInput.classList.remove('show');
-            previewImage.classList.remove('show');
             captureBtn.disabled = false;
             detectedPhone = '';
             manualPhone.value = '';
