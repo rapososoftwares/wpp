@@ -265,39 +265,6 @@
             display: block;
         }
 
-        .manual-input {
-            display: none;
-            margin-top: 15px;
-        }
-
-        .manual-input.show {
-            display: block;
-        }
-
-        .input-group {
-            margin-bottom: 10px;
-        }
-
-        .input-group label {
-            display: block;
-            font-size: 12px;
-            color: #666;
-            margin-bottom: 5px;
-        }
-
-        .input-group input {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            font-size: 16px;
-        }
-
-        .input-group input:focus {
-            outline: none;
-            border-color: #25D366;
-        }
-
         .divider {
             text-align: center;
             color: #999;
@@ -375,23 +342,6 @@
             <button class="btn" style="background: #666; color: white;" id="newScanBtn">
                 🔄 Escanear Outro Número
             </button>
-
-            <div class="manual-input" id="manualInput">
-                <div class="input-group">
-                    <label>Não detectou? Digite manualmente:</label>
-                    <input type="tel" id="manualPhone" placeholder="(11) 98765-4321" />
-                </div>
-                <div class="period-buttons">
-                    <button class="btn-period morning" id="manualMorningBtn">
-                        <span class="icon">🌅</span>
-                        <span>MANHÃ</span>
-                    </button>
-                    <button class="btn-period afternoon" id="manualAfternoonBtn">
-                        <span class="icon">🌆</span>
-                        <span>TARDE</span>
-                    </button>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -409,10 +359,6 @@
         const afternoonBtn = document.getElementById('afternoonBtn');
         const newScanBtn = document.getElementById('newScanBtn');
         const errorDiv = document.getElementById('error');
-        const manualInput = document.getElementById('manualInput');
-        const manualPhone = document.getElementById('manualPhone');
-        const manualMorningBtn = document.getElementById('manualMorningBtn');
-        const manualAfternoonBtn = document.getElementById('manualAfternoonBtn');
 
         let detectedPhone = '';
         let worker = null;
@@ -547,16 +493,12 @@ Obrigado! 🚚`
                     phoneNumber.textContent = formatPhone(detectedPhone);
                     result.classList.add('show');
                 } else {
-                    showError('Nenhum telefone detectado. Tente novamente ou digite manualmente.');
-                    manualInput.classList.add('show');
-                    result.classList.add('show');
+                    showError('Nenhum telefone detectado. Tente novamente com melhor iluminação e posicionamento.');
                     captureBtn.disabled = false;
                 }
             } catch (err) {
                 console.error('Erro no OCR:', err);
-                showError('Erro ao escanear. Digite o número manualmente.');
-                manualInput.classList.add('show');
-                result.classList.add('show');
+                showError('Erro ao escanear. Tente novamente.');
                 loading.classList.remove('show');
                 captureBtn.disabled = false;
             }
@@ -609,7 +551,7 @@ Obrigado! 🚚`
             window.open(whatsappUrl, '_blank');
         }
 
-        // Botões de período - número detectado
+        // Botões de período
         morningBtn.addEventListener('click', () => {
             openWhatsApp(detectedPhone, 'morning');
         });
@@ -618,34 +560,11 @@ Obrigado! 🚚`
             openWhatsApp(detectedPhone, 'afternoon');
         });
 
-        // Botões de período - número manual
-        manualMorningBtn.addEventListener('click', () => {
-            const phone = manualPhone.value.replace(/\D/g, '');
-            if (phone.length >= 10) {
-                const fullPhone = phone.startsWith('55') ? phone : '55' + phone;
-                openWhatsApp(fullPhone, 'morning');
-            } else {
-                showError('Digite um número válido com DDD');
-            }
-        });
-
-        manualAfternoonBtn.addEventListener('click', () => {
-            const phone = manualPhone.value.replace(/\D/g, '');
-            if (phone.length >= 10) {
-                const fullPhone = phone.startsWith('55') ? phone : '55' + phone;
-                openWhatsApp(fullPhone, 'afternoon');
-            } else {
-                showError('Digite um número válido com DDD');
-            }
-        });
-
         // Novo scan
         newScanBtn.addEventListener('click', () => {
             result.classList.remove('show');
-            manualInput.classList.remove('show');
             captureBtn.disabled = false;
             detectedPhone = '';
-            manualPhone.value = '';
             status.textContent = 'Câmera pronta';
         });
 
