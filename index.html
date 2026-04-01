@@ -219,6 +219,14 @@
             background: linear-gradient(135deg, #357ABD 0%, #2868AB 100%);
         }
 
+        .btn-period.start-chat {
+            background: linear-gradient(135deg, #25D366 0%, #20BA5A 100%);
+        }
+
+        .btn-period.start-chat:active {
+            background: linear-gradient(135deg, #1DA851 0%, #188F4A 100%);
+        }
+
         .status {
             text-align: center;
             padding: 12px;
@@ -337,6 +345,11 @@
                 </button>
             </div>
             
+            <button class="btn-period start-chat" id="startChatBtn" style="margin-top: 10px; width: 100%;">
+                <span class="icon">💬</span>
+                <span>Iniciar Conversa</span>
+            </button>
+            
             <div class="divider">OU</div>
             
             <button class="btn" style="background: #666; color: white;" id="newScanBtn">
@@ -357,6 +370,7 @@
         const phoneNumber = document.getElementById('phoneNumber');
         const morningBtn = document.getElementById('morningBtn');
         const afternoonBtn = document.getElementById('afternoonBtn');
+        const startChatBtn = document.getElementById('startChatBtn');
         const newScanBtn = document.getElementById('newScanBtn');
         const errorDiv = document.getElementById('error');
 
@@ -655,6 +669,23 @@ Obrigado! 🚚`
             }, 1500);
         }
 
+        // Abrir WhatsApp sem mensagem
+        function openWhatsAppNoMessage(phone) {
+            // whatsapp:// abre o app nativo diretamente (iOS e Android)
+            // Fallback para wa.me se o app não estiver instalado
+            const appUrl = `whatsapp://send?phone=${phone}`;
+            const webUrl = `https://wa.me/${phone}`;
+
+            // Tenta abrir o app; se falhar após 1.5s, abre no navegador
+            window.location.href = appUrl;
+            setTimeout(() => {
+                // Só redireciona para web se a página ainda estiver visível
+                if (!document.hidden) {
+                    window.location.href = webUrl;
+                }
+            }, 1500);
+        }
+
         // Botões de período
         morningBtn.addEventListener('click', () => {
             openWhatsApp(detectedPhone, 'morning');
@@ -662,6 +693,11 @@ Obrigado! 🚚`
 
         afternoonBtn.addEventListener('click', () => {
             openWhatsApp(detectedPhone, 'afternoon');
+        });
+
+        // Botão de iniciar conversa sem mensagem
+        startChatBtn.addEventListener('click', () => {
+            openWhatsAppNoMessage(detectedPhone);
         });
 
         // Novo scan
