@@ -227,6 +227,14 @@
             background: linear-gradient(135deg, #1DA851 0%, #188F4A 100%);
         }
 
+        .btn-period.call-btn {
+            background: linear-gradient(135deg, #34B7F1 0%, #1E88E5 100%);
+        }
+
+        .btn-period.call-btn:active {
+            background: linear-gradient(135deg, #1E88E5 0%, #1565C0 100%);
+        }
+
         .status {
             text-align: center;
             padding: 8px;
@@ -350,6 +358,11 @@
                 <span>Iniciar Conversa</span>
             </button>
             
+            <button class="btn-period call-btn" id="callBtn" style="margin-top: 6px; width: 100%;">
+                <span class="icon">📞</span>
+                <span>LIGAR</span>
+            </button>
+            
             <div class="divider">OU</div>
             
             <button class="btn" style="background: #666; color: white;" id="newScanBtn">
@@ -371,6 +384,7 @@
         const morningBtn = document.getElementById('morningBtn');
         const afternoonBtn = document.getElementById('afternoonBtn');
         const startChatBtn = document.getElementById('startChatBtn');
+        const callBtn = document.getElementById('callBtn');
         const newScanBtn = document.getElementById('newScanBtn');
         const errorDiv = document.getElementById('error');
 
@@ -430,6 +444,13 @@ Obrigado! 🚚`
         // Iniciar câmera
         async function startCamera() {
             try {
+                // Para qualquer stream anterior
+                if (video.srcObject) {
+                    const tracks = video.srcObject.getTracks();
+                    tracks.forEach(track => track.stop());
+                    video.srcObject = null;
+                }
+                
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: {
                         facingMode: 'environment',
@@ -439,11 +460,29 @@ Obrigado! 🚚`
                 });
                 video.srcObject = stream;
                 captureBtn.disabled = false;
+                status.textContent = 'Câmera pronta';
             } catch (err) {
                 showError('Erro ao acessar câmera: ' + err.message);
                 captureBtn.disabled = true;
             }
         }
+
+        // Reativar câmera quando voltar ao app
+        document.addEventListener('visibilitychange', async () => {
+            if (!document.hidden) {
+                // Página ficou visível novamente
+                // Verifica se o vídeo está tocando
+                if (video.srcObject) {
+                    const tracks = video.srcObject.getVideoTracks();
+                    if (tracks.length > 0 && tracks[0].readyState === 'live') {
+                        // Câmera já está ativa
+                        return;
+                    }
+                }
+                // Reinicia a câmera
+                await startCamera();
+            }
+        });
 
         // Indicador visual de foco
         const cameraContainer = document.querySelector('.camera-container');
@@ -686,6 +725,11 @@ Obrigado! 🚚`
             }, 1500);
         }
 
+        // Abrir discador do telefone
+        function openPhoneDialer(phone) {
+            window.location.href = `tel:${phone}`;
+        }
+
         // Botões de período
         morningBtn.addEventListener('click', () => {
             openWhatsApp(detectedPhone, 'morning');
@@ -698,6 +742,11 @@ Obrigado! 🚚`
         // Botão de iniciar conversa sem mensagem
         startChatBtn.addEventListener('click', () => {
             openWhatsAppNoMessage(detectedPhone);
+        });
+
+        // Botão de ligar
+        callBtn.addEventListener('click', () => {
+            openPhoneDialer(detectedPhone);
         });
 
         // Novo scan
