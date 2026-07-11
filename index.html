@@ -140,6 +140,16 @@
             cursor: not-allowed;
         }
 
+        .btn-secondary {
+            background: #666;
+            color: white;
+        }
+
+        .btn-secondary:active {
+            background: #444;
+            transform: scale(0.98);
+        }
+
         .result {
             padding: 8px;
             background: #F0F2F5;
@@ -162,6 +172,16 @@
             font-size: 10px;
             color: #666;
             margin-bottom: 2px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .edit-link {
+            color: #128C7E;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 11px;
         }
 
         .phone-number {
@@ -169,6 +189,37 @@
             font-weight: 700;
             color: #075E54;
             letter-spacing: 0.5px;
+        }
+
+        #phoneInput {
+            width: 100%;
+            font-size: 16px;
+            font-weight: 700;
+            color: #075E54;
+            padding: 6px;
+            border-radius: 6px;
+            border: 2px solid #25D366;
+            display: none;
+            margin-bottom: 5px;
+        }
+
+        #saveEditBtn {
+            display: none;
+        }
+
+        .manual-entry {
+            padding: 8px;
+            background: #F0F2F5;
+            display: none;
+        }
+
+        .manual-entry input {
+            width: 100%;
+            padding: 8px;
+            font-size: 14px;
+            border-radius: 6px;
+            border: 2px solid #25D366;
+            margin-bottom: 5px;
         }
 
         .period-buttons {
@@ -328,7 +379,16 @@
             <button class="btn btn-capture" id="captureBtn">
                 📸 Capturar e Escanear
             </button>
+            <button class="btn btn-secondary" id="manualBtn">
+                ✏️ Digitar Número Manualmente
+            </button>
             <div class="status" id="status">Câmera pronta</div>
+        </div>
+
+        <div class="manual-entry" id="manualEntry">
+            <input type="tel" id="manualPhoneInput" placeholder="Ex: 41999998888 (com DDD)">
+            <button class="btn btn-capture" id="confirmManualBtn">Confirmar Número</button>
+            <button class="btn btn-secondary" id="cancelManualBtn">Cancelar</button>
         </div>
 
         <div class="loading" id="loading">
@@ -338,8 +398,13 @@
 
         <div class="result" id="result">
             <div class="phone-display">
-                <div class="phone-label">Número detectado:</div>
+                <div class="phone-label">
+                    <span>Número detectado:</span>
+                    <span class="edit-link" id="editLink">✏️ Editar</span>
+                </div>
                 <div class="phone-number" id="phoneNumber"></div>
+                <input type="tel" id="phoneInput" placeholder="Ex: 41999998888 (com DDD)">
+                <button class="btn btn-capture" id="saveEditBtn">Salvar</button>
             </div>
             
             <div class="period-buttons">
@@ -376,11 +441,19 @@
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
         const captureBtn = document.getElementById('captureBtn');
+        const manualBtn = document.getElementById('manualBtn');
+        const manualEntry = document.getElementById('manualEntry');
+        const manualPhoneInput = document.getElementById('manualPhoneInput');
+        const confirmManualBtn = document.getElementById('confirmManualBtn');
+        const cancelManualBtn = document.getElementById('cancelManualBtn');
         const status = document.getElementById('status');
         const loading = document.getElementById('loading');
         const loadingText = document.getElementById('loadingText');
         const result = document.getElementById('result');
         const phoneNumber = document.getElementById('phoneNumber');
+        const phoneInput = document.getElementById('phoneInput');
+        const editLink = document.getElementById('editLink');
+        const saveEditBtn = document.getElementById('saveEditBtn');
         const morningBtn = document.getElementById('morningBtn');
         const afternoonBtn = document.getElementById('afternoonBtn');
         const startChatBtn = document.getElementById('startChatBtn');
@@ -391,22 +464,84 @@
         let detectedPhone = '';
         let worker = null;
 
+        // 4 variações por período para evitar padrão idêntico de mensagem (anti-spam/anti-banimento)
         const messages = {
-            morning: `Olá, tudo bem? 😊 
-Aqui é da equipe de entregas da Electrolux.
+            morning: [
+`Olá! 😊
 
-Informamos que já estamos em rota e sua entrega será realizada hoje no período da manhã.
+Sou da AZ Logística e serei o responsável pela entrega do seu produto Electrolux.
 
-Pedimos, por gentileza, que tenha alguém no local para receber o produto. 
-Obrigado! 🚚`,
-            afternoon: `Olá, tudo bem? 😊 
-Aqui é da equipe de entregas da Electrolux.
+A entrega está prevista para o período da manhã.
+Não conseguimos informar um horário exato, pois ele pode variar conforme o roteiro de entregas, trânsito e outros fatores.
 
-Informamos que já estamos em rota e sua entrega será realizada hoje no período da tarde.
+Pedimos a gentileza de manter uma pessoa maior de idade no local para receber e assinar o documento de entrega.
 
-Pedimos, por gentileza, que tenha alguém no local para receber o produto. 
-Obrigado! 🚚`
+Agradeço pela compreensão! 🚚`,
+`Bom dia! 
+Aqui é da equipe de entregas da Electrolux, via AZ Logística.
+
+Sua entrega está agendada para hoje, no período da manhã.
+
+Pedimos que tenha alguém disponível no endereço para receber o produto.
+
+Qualquer dúvida, estou à disposição. Obrigado! 📦`,
+`Olá, tudo bem?
+Sou o entregador responsável pelo seu pedido Electrolux hoje.
+
+A entrega ocorrerá no período da manhã, dentro da nossa rota de hoje.
+
+Por favor, garanta que haja alguém no local para receber a mercadoria.
+
+Agradeço a atenção! 🙏`,
+`Oi! Passando para avisar que sua entrega Electrolux está confirmada para o período da manhã de hoje.
+
+O horário exato pode variar conforme o trânsito e a ordem das entregas da rota.
+
+Pedimos que alguém esteja disponível para receber e assinar o comprovante.
+
+Obrigado pela parceria! 🚛`
+            ],
+            afternoon: [
+`Olá! 😊
+
+Sou da AZ Logística e serei o responsável pela entrega do seu produto Electrolux.
+
+A entrega está prevista para o período da tarde.
+Não conseguimos informar um horário exato, pois ele pode variar conforme o roteiro de entregas, trânsito e outros fatores.
+
+Pedimos a gentileza de manter uma pessoa maior de idade no local para receber e assinar o documento de entrega.
+
+Agradeço pela compreensão! 🚚`,
+`Boa tarde!
+Aqui é da equipe de entregas da Electrolux, via AZ Logística.
+
+Sua entrega está agendada para hoje, no período da tarde.
+
+Pedimos que tenha alguém disponível no endereço para receber o produto.
+
+Qualquer dúvida, estou à disposição. Obrigado! 📦`,
+`Olá, tudo bem?
+Sou o entregador responsável pelo seu pedido Electrolux hoje.
+
+A entrega ocorrerá no período da tarde, dentro da nossa rota de hoje.
+
+Por favor, garanta que haja alguém no local para receber a mercadoria.
+
+Agradeço a atenção! 🙏`,
+`Oi! Passando para avisar que sua entrega Electrolux está confirmada para o período da tarde de hoje.
+
+O horário exato pode variar conforme o trânsito e a ordem das entregas da rota.
+
+Pedimos que alguém esteja disponível para receber e assinar o comprovante.
+
+Obrigado pela parceria! 🚛`
+            ]
         };
+
+        function getRandomMessage(period) {
+            const arr = messages[period];
+            return arr[Math.floor(Math.random() * arr.length)];
+        }
 
         // Inicializar Tesseract
         async function initTesseract() {
@@ -470,16 +605,12 @@ Obrigado! 🚚`
         // Reativar câmera quando voltar ao app
         document.addEventListener('visibilitychange', async () => {
             if (!document.hidden) {
-                // Página ficou visível novamente
-                // Verifica se o vídeo está tocando
                 if (video.srcObject) {
                     const tracks = video.srcObject.getVideoTracks();
                     if (tracks.length > 0 && tracks[0].readyState === 'live') {
-                        // Câmera já está ativa
                         return;
                     }
                 }
-                // Reinicia a câmera
                 await startCamera();
             }
         });
@@ -534,8 +665,6 @@ Obrigado! 🚚`
                 return;
             }
 
-            // Calcular a região exata do quadrado no vídeo real
-            // levando em conta o object-fit: cover
             const videoRect = video.getBoundingClientRect();
             const displayW = videoRect.width;
             const displayH = videoRect.height;
@@ -543,32 +672,25 @@ Obrigado! 🚚`
             const videoW = video.videoWidth;
             const videoH = video.videoHeight;
 
-            // Escala do object-fit: cover (maior das duas escalas)
             const scale = Math.max(displayW / videoW, displayH / videoH);
 
-            // Tamanho renderizado do vídeo dentro do elemento (pode ser maior que o elemento)
             const renderedW = videoW * scale;
             const renderedH = videoH * scale;
 
-            // Offset do vídeo dentro do elemento (centrado)
             const offsetX = (renderedW - displayW) / 2;
             const offsetY = (renderedH - displayH) / 2;
 
-            // O overlay visual ocupa 70% da largura e 40% da altura do elemento, centralizado
-            // Margem interna para garantir que só captura dentro do quadrado
             const margin = 10;
             const overlayDisplayX = displayW * 0.15 + margin;
             const overlayDisplayY = displayH * 0.30 + margin;
             const overlayDisplayW = displayW * 0.70 - margin * 2;
             const overlayDisplayH = displayH * 0.40 - margin * 2;
 
-            // Converter coordenadas do elemento para coordenadas reais do vídeo
             const cropX = (overlayDisplayX + offsetX) / scale;
             const cropY = (overlayDisplayY + offsetY) / scale;
             const cropW = overlayDisplayW / scale;
             const cropH = overlayDisplayH / scale;
 
-            // Upscale para melhorar precisão do OCR
             const upscale = 2.5;
             canvas.width = cropW * upscale;
             canvas.height = cropH * upscale;
@@ -576,7 +698,6 @@ Obrigado! 🚚`
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = 'high';
 
-            // Desenhar apenas a região do quadrado
             ctx.drawImage(
                 video,
                 cropX, cropY,
@@ -585,7 +706,6 @@ Obrigado! 🚚`
                 canvas.width, canvas.height
             );
 
-            // Converter para preto e branco para melhorar OCR
             const imageDataObj = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const d = imageDataObj.data;
             for (let i = 0; i < d.length; i += 4) {
@@ -620,17 +740,14 @@ Obrigado! 🚚`
                 
                 console.log('Texto detectado:', text);
 
-                // Buscar padrões de telefone brasileiro
                 const phones = extractPhones(text);
 
                 loading.classList.remove('show');
 
                 if (phones.length > 0) {
-                    detectedPhone = phones[0];
-                    phoneNumber.textContent = formatPhone(detectedPhone);
-                    result.classList.add('show');
+                    showResult(phones[0]);
                 } else {
-                    showError('Nenhum telefone detectado. Tente novamente com melhor iluminação e posicionamento.');
+                    showError('Nenhum telefone detectado. Tente novamente com melhor iluminação e posicionamento, ou digite manualmente.');
                     captureBtn.disabled = false;
                 }
             } catch (err) {
@@ -681,27 +798,51 @@ Obrigado! 🚚`
             return phone;
         }
 
+        // Normaliza um número digitado/editado para o formato 55DDNNNNNNNNN
+        function normalizePhone(raw) {
+            let digits = raw.replace(/\D/g, '');
+            if (digits.length === 12 || digits.length === 13) {
+                // já tem 55 + DDD + número
+                if (digits.startsWith('55')) return digits;
+            }
+            if (digits.length === 10 || digits.length === 11) {
+                return '55' + digits;
+            }
+            if ((digits.length === 12 || digits.length === 13) && digits.startsWith('55')) {
+                return digits;
+            }
+            return null; // inválido
+        }
+
+        // Exibe o painel de resultado com um número já detectado/definido
+        function showResult(phone) {
+            detectedPhone = phone;
+            phoneNumber.textContent = formatPhone(detectedPhone);
+            phoneNumber.style.display = 'block';
+            phoneInput.style.display = 'none';
+            saveEditBtn.style.display = 'none';
+            editLink.textContent = '✏️ Editar';
+            result.classList.add('show');
+            manualEntry.style.display = 'none';
+        }
+
         // Codifica preservando emojis como UTF-8 literal (whatsapp:// não lida bem com %F0%9F...)
         function encodeMessage(text) {
             return text.split('').map(char => {
                 const code = char.codePointAt(0);
-                if (code > 255) return char; // emoji/unicode: deixa literal
+                if (code > 255) return char;
                 return encodeURIComponent(char);
             }).join('');
         }
 
         // Abrir WhatsApp direto no app
         function openWhatsApp(phone, period) {
-            const message = encodeMessage(messages[period]);
-            // whatsapp:// abre o app nativo diretamente (iOS e Android)
-            // Fallback para wa.me se o app não estiver instalado
+            const message = encodeMessage(getRandomMessage(period));
             const appUrl = `whatsapp://send?phone=${phone}&text=${message}`;
             const webUrl = `https://wa.me/${phone}?text=${message}`;
 
-            // Tenta abrir o app; se falhar após 1.5s, abre no navegador
             window.location.href = appUrl;
             setTimeout(() => {
-                // Só redireciona para web se a página ainda estiver visível
                 if (!document.hidden) {
                     window.location.href = webUrl;
                 }
@@ -710,15 +851,11 @@ Obrigado! 🚚`
 
         // Abrir WhatsApp sem mensagem
         function openWhatsAppNoMessage(phone) {
-            // whatsapp:// abre o app nativo diretamente (iOS e Android)
-            // Fallback para wa.me se o app não estiver instalado
             const appUrl = `whatsapp://send?phone=${phone}`;
             const webUrl = `https://wa.me/${phone}`;
 
-            // Tenta abrir o app; se falhar após 1.5s, abre no navegador
             window.location.href = appUrl;
             setTimeout(() => {
-                // Só redireciona para web se a página ainda estiver visível
                 if (!document.hidden) {
                     window.location.href = webUrl;
                 }
@@ -727,12 +864,11 @@ Obrigado! 🚚`
 
         // Abrir discador do telefone
         function openPhoneDialer(phone) {
-            // Remove o código do país (55) e o DDD (2 dígitos)
-            let phoneNumber = phone.replace(/^55/, ''); // Remove 55
-            if (phoneNumber.length === 11 || phoneNumber.length === 10) {
-                phoneNumber = phoneNumber.substring(2); // Remove os 2 primeiros dígitos (DDD)
+            let phoneNum = phone.replace(/^55/, '');
+            if (phoneNum.length === 11 || phoneNum.length === 10) {
+                phoneNum = phoneNum.substring(2);
             }
-            window.location.href = `tel:${phoneNumber}`;
+            window.location.href = `tel:${phoneNum}`;
         }
 
         // Botões de período
@@ -744,12 +880,10 @@ Obrigado! 🚚`
             openWhatsApp(detectedPhone, 'afternoon');
         });
 
-        // Botão de iniciar conversa sem mensagem
         startChatBtn.addEventListener('click', () => {
             openWhatsAppNoMessage(detectedPhone);
         });
 
-        // Botão de ligar
         callBtn.addEventListener('click', () => {
             openPhoneDialer(detectedPhone);
         });
@@ -760,6 +894,47 @@ Obrigado! 🚚`
             captureBtn.disabled = false;
             detectedPhone = '';
             status.textContent = 'Câmera pronta';
+        });
+
+        // Editar número detectado
+        editLink.addEventListener('click', () => {
+            phoneInput.value = detectedPhone.replace(/^55/, '');
+            phoneNumber.style.display = 'none';
+            phoneInput.style.display = 'block';
+            saveEditBtn.style.display = 'block';
+            phoneInput.focus();
+        });
+
+        saveEditBtn.addEventListener('click', () => {
+            const normalized = normalizePhone(phoneInput.value);
+            if (!normalized) {
+                showError('Número inválido. Digite DDD + número (10 ou 11 dígitos).');
+                return;
+            }
+            showResult(normalized);
+        });
+
+        // Entrada manual de número (sem escanear)
+        manualBtn.addEventListener('click', () => {
+            manualEntry.style.display = manualEntry.style.display === 'none' ? 'block' : 'none';
+            if (manualEntry.style.display === 'block') {
+                manualPhoneInput.focus();
+            }
+        });
+
+        cancelManualBtn.addEventListener('click', () => {
+            manualEntry.style.display = 'none';
+            manualPhoneInput.value = '';
+        });
+
+        confirmManualBtn.addEventListener('click', () => {
+            const normalized = normalizePhone(manualPhoneInput.value);
+            if (!normalized) {
+                showError('Número inválido. Digite DDD + número (10 ou 11 dígitos).');
+                return;
+            }
+            manualPhoneInput.value = '';
+            showResult(normalized);
         });
 
         // Mostrar erro
